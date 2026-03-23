@@ -63,7 +63,7 @@ A summary of mortality statistics
 
 ```{r}
 #| label: mortality-over-time-data
-#| echo: false
+#| include: false
 
 
 # Convert date to Date class and summarise metrics over time
@@ -99,24 +99,120 @@ ggplot(mort_time, aes(x = date, y = median_mortality, colour = species)) +
 
 ## Which region has the lowest mortality? 
 
-Average mortality for each region 
+Average mortality for each region - overall lowest 15
 
 ```{r}
 #| label: regional mortality data
+#| echo: true
 
 # The dataset does not contain raw individual‑fish mortality measurements, only regional monthly medians
 
 # Average median mortality by region
+#Since the dataset contains country, county, and area level data, I will filter to include only counties
+
 mort_by_region <- monthly_mortality_data |> 
   mutate(date = as.Date(date)) |> 
-  group_by(geo_group, region, species) |> 
+  filter(geo_group == "county") |> 
+  group_by(region, species) |> 
   summarise(
-    avg_median_mortality = mean(median, na.rm = TRUE),
+    avg_median_mortality = mean(median, na.rm = TRUE), #avg of medians
     p10 = quantile(median, 0.10, na.rm = TRUE),
     p90 = quantile(median, .90, na.rm = TRUE),
-    n_months = sum(!is.na(median)),
+    n_months = sum(!is.na(median)), #count of months
     .groups = "drop"
   )
 
+# Select the 15 regions with the lowest average mortality.
+lowest_regions <- mort_by_region |>
+  arrange(avg_median_mortality) |>
+  slice_head(n = 15)
+
+lowest_regions
+```
+
+
+Plotting mortality by region
+
+```{r}
+#| label: lowest mortality plot
+#| echo: true
+
+# Filtering for just salmon
+#salmon_lowest_region <- lowest_regions |> 
+#  filter(species == "salmon")
+
+# Filtering for just rainbow trout
+#trout_lowest_region <- lowest_regions |> 
+#  filter(species == "rainbowtrout")
+
+# Salmon lowest mortality graph
+ggplot(lowest_regions,
+       aes(x = reorder(region, avg_median_mortality),
+           y = avg_median_mortality,
+           fill = species)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Counties with Lowest Average Median Mortality",
+    subtitle = "Filtered to geo_group = 'County'",
+    x = NULL,
+    y = "Average median mortality"
+  ) +
+  theme(legend.position = "bottom")
 
 ```
+
+## What other types of losses are significant?
+
+The losses dataset includes:
+
+- dead
+- discarded
+- escaped
+- other
+
+We reshape the dataset to explore proportions.
+
+```{r}
+#|label: loss long data
+#|include: false
+
+# Convert wide columns (dead, discarded, escaped, other)
+# into a long tidy format: loss_type, count.
+loss_long <- monthly_losses_data |>
+  mutate(date = as.Date(date)) |>
+  select(species, date, geo_group, region, losses, dead, discarded, escaped, other) |>
+  pivot_longer(
+    cols = c(dead, discarded, escaped, other),
+    names_to = "loss_type",
+    values_to = "count"
+  ) |>
+  mutate(share = count / losses)   # compute proportion of total loss
+
+loss_long
+
+```
+
+Summarise total losses by type
+```{r}
+#| label: loss-summary
+
+# For each loss type, compute total and mean share.
+loss_long |>
+  group_by(loss_type) |>
+  summarise(
+    total_count = sum(count, na.rm = TRUE),
+    avg_share = mean(share, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(total_count))
+
+```
+
+Loss over time
+
+
+
+Loss composition by region
+
+
