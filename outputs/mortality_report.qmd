@@ -1,0 +1,122 @@
+---
+title: "Salmonid Mortality Analysis: TidyTuesday"
+subtitle: "Reproducible analysis using quarto"
+author: "Arush Mohan"
+date: today
+date-format: "DD MMMM YYYY"
+format:
+  html:
+    toc: true               # Table of contents
+    toc-depth: 2
+    number-sections: true
+    code-fold: true         # Allows folding of long code blocks
+    embed-resources: true   # Makes a standalone HTML (easy to share)
+editor: visual
+---
+
+``` {r}
+#| label: setup
+#| include: false
+
+# Loading in the packages
+
+library(tidyverse)    # includes dplyr, tidyr, readr, ggplot2
+library(lubridate)    # date handling
+library(janitor)      # clean column names
+library(scales)       # number formatting (percent, comma)
+
+# Setting a theme
+
+theme_set(theme_minimal(base_size = 12))
+
+# Loading in the csv files from Github
+
+monthly_losses_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-03-17/monthly_losses_data.csv')
+monthly_mortality_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-03-17/monthly_mortality_data.csv')
+
+```
+
+
+```{r}
+#|label: Cleaning the data
+#|include: false
+
+# The data provided is already in a clean format
+
+# Quick check of the data structure
+
+glimpse(monthly_losses_data)
+glimpse(monthly_mortality_data)
+
+
+```
+
+## Overview
+
+Add an overview of the project
+
+
+
+## How does monthly mortality differ over time? 
+
+A summary of mortality statistics
+
+```{r}
+#| label: mortality-over-time-data
+#| echo: false
+
+
+# Convert date to Date class and summarise metrics over time
+mort_time <- monthly_mortality_data |>
+  mutate(date = as.Date(date)) |>
+  group_by(species, date) |>
+  summarise(
+    median_mortality = median(median, na.rm = TRUE),
+    q1 = median(q1, na.rm = TRUE),
+    q3 = median(q3, na.rm = TRUE),
+    .groups = "drop"
+  )
+glimpse(mort_time)
+```
+
+```{r}
+#| label: mortality-over-time-plot
+
+# Line plot showing mortality over time by species.
+ggplot(mort_time, aes(x = date, y = median_mortality, colour = species)) +
+  geom_line(linewidth = 1.5) +
+  labs(
+    title = "Median Monthly Mortality Over Time",
+    subtitle = "Aggregated across all regions",
+    x = NULL,
+    y = "Median mortality"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(legend.position = "bottom")
+
+```
+
+
+## Which region has the lowest mortality? 
+
+Average mortality for each region 
+
+```{r}
+#| label: regional mortality data
+
+# The dataset does not contain raw individual‑fish mortality measurements, only regional monthly medians
+
+# Average median mortality by region
+mort_by_region <- monthly_mortality_data |> 
+  mutate(date = as.Date(date)) |> 
+  group_by(geo_group, region, species) |> 
+  summarise(
+    avg_median_mortality = mean(median, na.rm = TRUE),
+    p10 = quantile(median, 0.10, na.rm = TRUE),
+    p90 = quantile(median, .90, na.rm = TRUE),
+    n_months = sum(!is.na(median)),
+    .groups = "drop"
+  )
+
+
+```
