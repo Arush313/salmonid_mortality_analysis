@@ -211,8 +211,64 @@ loss_long |>
 
 Loss over time
 
+```{r}
+#| label: loss over time
 
+# Summarise total losses by type per month.
+loss_time <- loss_long |>
+  group_by(loss_type, date) |>
+  summarise(total = sum(count, na.rm = TRUE), .groups = "drop")
+
+ggplot(loss_time,
+       aes(x = date, y = total, colour = loss_type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Loss Types Over Time",
+    subtitle = "Aggregated across all regions and species",
+    x = NULL,
+    y = "Number of fish"
+  ) +
+  scale_y_continuous(labels = comma) +  # prettier y-axis
+  theme(legend.position = "bottom")
+
+```
 
 Loss composition by region
 
+```{r}
+#| label: loss by region plot
+
+# Compute regional loss composition (share of each type)
+loss_by_region <- loss_long |>
+  filter(geo_group == "county") |> 
+  group_by(region, loss_type) |>
+  summarise(total = sum(count, na.rm = TRUE), .groups = "drop") |>
+  group_by(region) |>
+  mutate(share = total / sum(total)) |>
+  ungroup()
+
+# Select the 5 regions with the highest total losses.
+top_regions <- loss_by_region |>
+  group_by(region) |>
+  summarise(total_losses = sum(total), .groups = "drop") |>
+  arrange(desc(total_losses)) |>
+  slice_head(n = 5) |>
+  pull(region)
+
+# Plot the composition.
+loss_by_region |>
+  filter(region %in% top_regions) |>
+  ggplot(aes(x = reorder(region, share), y = share, fill = loss_type)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Loss Composition by Region",
+    subtitle = "Top 5 counties by total losses",
+    x = NULL,
+    y = "Share of total losses"
+  ) +
+  scale_y_continuous(labels = percent_format()) +
+  theme(legend.position = "bottom")
+
+```
 
