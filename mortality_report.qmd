@@ -10,7 +10,7 @@ format:
     toc-depth: 2
     number-sections: true
     code-fold: true         # Allows folding of long code blocks
-    embed-resources: true   # Makes a standalone HTML (easy to share)
+    embed-resources: true   # Makes a standalone HTML
 editor: visual
 ---
 
@@ -50,15 +50,15 @@ monthly_mortality_data <- readr::read_csv('https://raw.githubusercontent.com/rfo
 
 # Quick check of the data structure
 
-glimpse(monthly_losses_data)
-glimpse(monthly_mortality_data)
+# glimpse(monthly_losses_data)
+# glimpse(monthly_mortality_data)
 
 
 ```
 
 ## Overview
 
-The datasets this week come from the suite of Salmonid mortality datasets published by the Norwegian Veterinary Institute. The Fish Health Report is the Norwegian Veterinary Institute's annual status report on the health and welfare situation for Norwegian farmed fish and is based on official statistics, data from the Norwegian Veterinary Institute and private laboratories. The report also contains results from a survey among fish health personnel and inspectors from the Norwegian Food Safety Authority, as well as assessments of the situation, trends and risks.
+The Tidy Tuesday datasets this week (17/03/26) come from the suite of Salmonid mortality datasets published by the Norwegian Veterinary Institute. The Fish Health Report is the Norwegian Veterinary Institute's annual status report on the health and welfare situation for Norwegian farmed fish and is based on official statistics, data from the Norwegian Veterinary Institute and private laboratories. The report also contains results from a survey among fish health personnel and inspectors from the Norwegian Food Safety Authority, as well as assessments of the situation, trends and risks.
 
 This report contains uses two datasets (the monthly mortality data and the monthly loses data) to answer the following questions: 
 
@@ -74,8 +74,8 @@ A summary of mortality statistics
 ```{r}
 #| label: mortality-over-time-data
 #| include: false
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
 
 
 # Convert date to Date class and summarise metrics over time
@@ -94,8 +94,8 @@ glimpse(mort_time)
 ```{r}
 #| label: mortality-over-time-plot
 #| echo: false
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
 
 
 # Line plot showing mortality over time by species.
@@ -118,8 +118,8 @@ Alternative interactive time-series plot
 
 #| label: mortality-plotly-ts
 #| echo: true
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
 
 
 ts_plot_1 <- ggplot(mort_time, aes(date, median_mortality, color = species, group = species,
@@ -146,9 +146,6 @@ ggplotly(ts_plot_1, tooltip = "text") |>
     margin = list(b = 80)  #add bottom margin so the legend isn't clipped
   )
 
-
-
-
 ```
 
 
@@ -157,8 +154,8 @@ ggplotly(ts_plot_1, tooltip = "text") |>
 ```{r}
 #| label: mort-seasonality
 #| echo: false
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
 
 #This was first attempt at plotting it out. Exploring different graphs later 
 
@@ -187,10 +184,10 @@ ggplotly(ts_plot_1, tooltip = "text") |>
 
 
 ```{r}
-#|label: mort-season-plot
-#|eecho: true
-#|message: false
-#|warning: false
+#| label: mort-season-plot
+#| echo: true
+#| message: false 
+#| warning: false 
 
 
 # plot_ly(
@@ -255,7 +252,7 @@ ggplotly(ts_plot_1, tooltip = "text") |>
 ```
 
 
-## Seasonality (“month of year” pattern)
+
 
 ```{r}
 #| label: seasonality-data-prep
@@ -277,11 +274,11 @@ mort_season_base <- monthly_mortality_data |>
 
 ::: {.panel-tabset}
 
-## Heatmaps (Year × Month)
+### Heatmaps (Year × Month)
 
 ::: {.panel-tabset}
 
-### rainbowtrout
+#### rainbowtrout
 
 ```{r}
 #| label: heatmap-rainbowtrout
@@ -324,7 +321,7 @@ plot_ly(
   )
 ```
 
-### salmon
+#### salmon
 
 ```{r}
 #| label: heatmap-salmon
@@ -369,11 +366,11 @@ plot_ly(
 
 :::
 
-## Boxplots (distribution by Month)
+### Boxplots (distribution by Month)
 
 ::: {.panel-tabset}
 
-### rainbowtrout
+#### rainbowtrout
 
 ```{r}
 #| label: boxplot-rainbowtrout
@@ -413,7 +410,7 @@ plot_ly(
   )
 ```
 
-### salmon
+#### salmon
 
 ```{r}
 #| label: boxplot-salmon
@@ -466,8 +463,9 @@ Average mortality for each region - overall lowest 15
 ```{r}
 #| label: regional-mortality-data
 #| echo: true
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
+#| include: false
 
 # The dataset does not contain raw individual‑fish mortality measurements, only regional monthly medians
 
@@ -499,8 +497,8 @@ Plotting mortality by region
 ```{r}
 #| label: lowest-mortality-plot
 #| echo: true
-#|message: false
-#|warning: false
+#| message: false
+#| warning: false
 
 # Filtering for just salmon
 #salmon_lowest_region <- lowest_regions |> 
@@ -539,10 +537,10 @@ The losses dataset includes:
 We reshape the dataset to explore proportions.
 
 ```{r}
-#|label: loss-long-data
-#|include: false
-#|message: false
-#|warning: false
+#| label: loss-long-data
+#| include: false
+#| message: false
+#| warning: false
 
 # Convert wide columns (dead, discarded, escaped, other)
 # into a long tidy format: loss_type, count.
@@ -563,10 +561,10 @@ loss_long
 Summarise total losses by type
 
 ```{r}
-#|label: loss-summary
-#|echo: true
-#|message: false
-#|warning: false
+#| label: loss-summary
+#| echo: true
+#| message: false
+#| warning: false
 
 # For each loss type, compute total and mean share.
 loss_summary_table<- loss_long |>
@@ -647,9 +645,9 @@ Loss over time
 
 ```{r}
 #| label: loss-over-time
-#|echo: true
-#|message: false
-#|warning: false
+#| echo: true
+#| message: false
+#| warning: false
 
 
 # Summarise total losses by type per month.
@@ -675,9 +673,9 @@ Loss composition by region
 
 ```{r}
 #| label: loss-by-region-plot
-#|echo: true
-#|message: false
-#|warning: false
+#| echo: true
+#| message: false
+#| warning: false
 
 
 # Compute regional loss composition (share of each type)
