@@ -112,7 +112,7 @@ ggplot(mort_time, aes(x = date, y = median_mortality, colour = species)) +
 
 ```
 
-Alternative interactive time-series plot
+### Alternative interactive time-series plot
 
 ```{r}
 
