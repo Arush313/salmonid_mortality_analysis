@@ -1,0 +1,715 @@
+---
+title: "Salmonid Mortality Analysis: TidyTuesday"
+subtitle: "Reproducible analysis using quarto"
+author: "Arush Mohan"
+date: today
+date-format: "DD MMMM YYYY"
+format:
+  html:
+    toc: true               # Table of contents
+    toc-depth: 2
+    number-sections: true
+    code-fold: true         # Allows folding of long code blocks
+    embed-resources: true   # Makes a standalone HTML (easy to share)
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Loading in the packages
+
+library(tidyverse)    
+library(lubridate)    
+library(janitor)      
+library(scales)       
+library(gt) 
+library(plotly)
+library(htmltools)
+# Setting a theme
+
+theme_set(theme_minimal(base_size = 12))
+
+# Loading in the csv files from Github
+
+monthly_losses_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-03-17/monthly_losses_data.csv')
+monthly_mortality_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2026/2026-03-17/monthly_mortality_data.csv')
+
+```
+
+```{r}
+#|label: Cleaning-the-data
+#|include: false
+#|results: hide
+#|message: false
+#|warning: false
+
+
+# The data provided is already in a clean format
+
+# Quick check of the data structure
+
+glimpse(monthly_losses_data)
+glimpse(monthly_mortality_data)
+
+
+```
+
+## Overview
+
+The datasets this week come from the suite of Salmonid mortality datasets published by the Norwegian Veterinary Institute. The Fish Health Report is the Norwegian Veterinary Institute's annual status report on the health and welfare situation for Norwegian farmed fish and is based on official statistics, data from the Norwegian Veterinary Institute and private laboratories. The report also contains results from a survey among fish health personnel and inspectors from the Norwegian Food Safety Authority, as well as assessments of the situation, trends and risks.
+
+This report contains uses two datasets (the monthly mortality data and the monthly loses data) to answer the following questions: 
+
+  - How does monthly mortality differ across the time period data is available for?
+  - Which region has lowest mortality?
+  - What other types of loses may be significant in addition to death of fish?
+
+
+## How does monthly mortality differ over time?
+
+A summary of mortality statistics
+
+```{r}
+#| label: mortality-over-time-data
+#| include: false
+#|message: false
+#|warning: false
+
+
+# Convert date to Date class and summarise metrics over time
+mort_time <- monthly_mortality_data |>
+  mutate(date = as.Date(date)) |>
+  group_by(species, date) |>
+  summarise(
+    median_mortality = median(median, na.rm = TRUE),
+    q1 = median(q1, na.rm = TRUE),
+    q3 = median(q3, na.rm = TRUE),
+    .groups = "drop"
+  )
+glimpse(mort_time)
+```
+
+```{r}
+#| label: mortality-over-time-plot
+#| echo: false
+#|message: false
+#|warning: false
+
+
+# Line plot showing mortality over time by species.
+ggplot(mort_time, aes(x = date, y = median_mortality, colour = species)) +
+  geom_line(linewidth = 1.5) +
+  labs(
+    title = "Median Monthly Mortality Over Time",
+    subtitle = "Aggregated across all regions",
+    x = NULL,
+    y = "Median mortality"
+  ) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  theme(legend.position = "bottom")
+
+```
+
+Alternative interactive time-series plot
+
+```{r}
+
+#| label: mortality-plotly-ts
+#| echo: true
+#|message: false
+#|warning: false
+
+
+ts_plot_1 <- ggplot(mort_time, aes(date, median_mortality, color = species, group = species,
+                          text = paste0("Species: ", species,
+                                        "<br>Date: ", date,
+                                        "<br>Median: ", round(median_mortality, 3)))) +
+  geom_line(linewidth = 1.5) +
+  geom_point(size = 1)
+  labs(title = "Median mortality over time", x = NULL, y = "Median mortality") +
+  theme(legend.position = "bottom")
+
+ggplotly(ts_plot_1, tooltip = "text") |>
+  style(mode = "lines+marker", line = list(width = 1.5)) |> 
+  layout(
+    showlegend = TRUE,
+    xaxis = list(title = ""),
+    yaxis = list(title = "Median Mortality"),
+    legend = list(
+      title = list(text = "Species"),
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.2, yanchor = "top"
+    ),
+    margin = list(b = 80)  #add bottom margin so the legend isn't clipped
+  )
+
+
+
+
+```
+
+
+### Seasonality 
+
+```{r}
+#| label: mort-seasonality
+#| echo: false
+#|message: false
+#|warning: false
+
+#This was first attempt at plotting it out. Exploring different graphs later 
+
+# mort_season <- monthly_mortality_data |>
+#   mutate(date = as.Date(date),
+#          month = month(date, label = TRUE, abbr = TRUE),
+#          year = year(date)) |>
+#   group_by(species, month) |>
+#   summarise(median_mortality = median(median, na.rm = TRUE), .groups = "drop")
+# 
+# season_plot <- ggplot(mort_season, aes(month, median_mortality, color = species,
+#                              group = species,
+#                              text = paste0("Species: ", species,
+#                                            "<br>Month: ", month,
+#                                            "<br>Median: ", round(median_mortality, 3)))) +
+#   geom_line(linewidth = 0.9) +
+#   geom_point() +
+#   labs(title = "Typical mortality by month", x = NULL, y = "Median mortality") +
+#   theme(legend.position = "bottom")
+# 
+# 
+# ggplotly(season_plot, tooltip = "text")
+
+
+```
+
+
+```{r}
+#|label: mort-season-plot
+#|eecho: true
+#|message: false
+#|warning: false
+
+
+# plot_ly(
+#   data = mort_month,
+#   x = ~month,
+#   y = ~median,
+#   color = ~species,
+#   type = "box",
+#   boxpoints = "outliers",     # show outliers
+#   jitter = 0.25,              # spread points a bit
+#   pointpos = -1.8,            # position points
+#   text = ~paste0(
+#     "Species: ", species,
+#     "<br>Month: ", month,
+#     "<br>Median mortality: ", round(median, 4)
+#   ),
+#   hoverinfo = "text"
+# ) |>
+#   layout(
+#     title = "Seasonality (boxplots by month)",
+#     xaxis = list(title = ""),
+#     yaxis = list(title = "Median Mortality"),
+#     legend = list(orientation = "h")
+#   )
+
+
+
+
+
+# 
+# heat_df <- mort_month |>
+#   group_by(species, month) |>
+#   summarise(value = median(median, na.rm = TRUE), .groups = "drop") |>
+#   mutate(month = factor(month, levels = month.abb))  # keep Jan..Dec order
+# 
+# # Convert to wide matrix for plotly heatmap
+# heat_mat <- heat_df |>
+#   pivot_wider(names_from = month, values_from = value) |>
+#   arrange(species)
+# 
+# z <- as.matrix(select(heat_mat, -species))
+# 
+# plot_ly(
+#   x = colnames(z),
+#   y = heat_mat$species,
+#   z = z,
+#   type = "heatmap",
+#   colors = "Reds",
+#   hovertemplate = paste(
+#     "Species: %{y}<br>",
+#     "Month: %{x}<br>",
+#     "Median mortality: %{z:.4f}<extra></extra>"
+#   )
+# ) |>
+#   layout(
+#     title = "Seasonality heatmap (typical month by species)",
+#     xaxis = list(title = ""),
+#     yaxis = list(title = "")
+#   )
+
+
+```
+
+
+## Seasonality (“month of year” pattern)
+
+```{r}
+#| label: seasonality-data-prep
+#| echo: true
+#| message: false
+#| warning: false
+
+
+mort_season_base <- monthly_mortality_data |>
+  mutate(
+    date    = as.Date(date),
+    year    = year(date),
+    month   = factor(month(date, label = TRUE, abbr = TRUE), levels = month.abb),
+    species = as.factor(species)
+  ) |>
+  filter(geo_group == "area") |>
+  select(species, year, month, region, median)
+```
+
+::: {.panel-tabset}
+
+## Heatmaps (Year × Month)
+
+::: {.panel-tabset}
+
+### rainbowtrout
+
+```{r}
+#| label: heatmap-rainbowtrout
+#| echo: true
+#| message: false
+#| warning: false
+
+sp <- "rainbowtrout"
+
+hm <- mort_season_base |>
+  filter(species == sp) |>
+  group_by(year, month) |>
+  summarise(value = median(median, na.rm = TRUE), .groups = "drop") |>
+  complete(year, month)
+
+hm_wide <- hm |>
+  pivot_wider(names_from = month, values_from = value) |>
+  arrange(year)
+
+z <- as.matrix(select(hm_wide, -year))
+
+plot_ly(
+  x = colnames(z),
+  y = hm_wide$year,
+  z = z,
+  type = "heatmap",
+  colors = "Blues",
+  hovertemplate = paste0(
+    "Species: ", sp, "<br>",
+    "Year: %{y}<br>",
+    "Month: %{x}<br>",
+    "Median mortality: %{z:.4f}<extra></extra>"
+  )
+) |>
+  layout(
+    title = paste0("Seasonality heatmap (", sp, "): Year × Month"),
+    xaxis = list(title = ""),
+    yaxis = list(title = ""),
+    margin = list(l = 60, r = 20, t = 60, b = 40)
+  )
+```
+
+### salmon
+
+```{r}
+#| label: heatmap-salmon
+#| echo: true
+#| message: false
+#| warning: false
+
+sp <- "salmon"
+
+hm <- mort_season_base |>
+  filter(species == sp) |>
+  group_by(year, month) |>
+  summarise(value = median(median, na.rm = TRUE), .groups = "drop") |>
+  complete(year, month)
+
+hm_wide <- hm |>
+  pivot_wider(names_from = month, values_from = value) |>
+  arrange(year)
+
+z <- as.matrix(select(hm_wide, -year))
+
+plot_ly(
+  x = colnames(z),
+  y = hm_wide$year,
+  z = z,
+  type = "heatmap",
+  colors = "Reds",
+  hovertemplate = paste0(
+    "Species: ", sp, "<br>",
+    "Year: %{y}<br>",
+    "Month: %{x}<br>",
+    "Median mortality: %{z:.4f}<extra></extra>"
+  )
+) |>
+  layout(
+    title = paste0("Seasonality heatmap (", sp, "): Year × Month"),
+    xaxis = list(title = ""),
+    yaxis = list(title = ""),
+    margin = list(l = 60, r = 20, t = 60, b = 40)
+  )
+```
+
+:::
+
+## Boxplots (distribution by Month)
+
+::: {.panel-tabset}
+
+### rainbowtrout
+
+```{r}
+#| label: boxplot-rainbowtrout
+#| echo: true
+#| message: false
+#| warning: false
+
+sp <- "rainbowtrout"
+
+df <- mort_season_base |>
+  filter(species == sp)
+
+plot_ly(
+  data = df,
+  x = ~month,
+  y = ~median,
+  type = "box",
+  boxpoints = "outliers",
+  jitter = 0.25,
+  pointpos = -1.6,
+  color = I("navyblue"),
+  text = ~paste0(
+    "Species: ", sp,
+    "<br>Month: ", month,
+    "<br>Year: ", year,
+    "<br>County: ", region,
+    "<br>Median mortality: ", round(median, 4)
+  ),
+  hoverinfo = "text"
+) |>
+  layout(
+    title = paste0("Seasonality boxplots (", sp, "): distribution by month"),
+    xaxis = list(title = ""),
+    yaxis = list(title = "Median Mortality"),
+    showlegend = FALSE,
+    margin = list(l = 60, r = 20, t = 60, b = 40)
+  )
+```
+
+### salmon
+
+```{r}
+#| label: boxplot-salmon
+#| echo: true
+#| message: false
+#| warning: false
+
+sp <- "salmon"
+
+df <- mort_season_base |>
+  filter(species == sp)
+
+plot_ly(
+  data = df,
+  x = ~month,
+  y = ~median,
+  type = "box",
+  boxpoints = "outliers",
+  jitter = 0.25,
+  pointpos = -1.6,
+  color = I("salmon"),
+  text = ~paste0(
+    "Species: ", sp,
+    "<br>Month: ", month,
+    "<br>Year: ", year,
+    "<br>County: ", region,
+    "<br>Median mortality: ", round(median, 4)
+  ),
+  hoverinfo = "text"
+) |>
+  layout(
+    title = paste0("Seasonality boxplots (", sp, "): distribution by month"),
+    xaxis = list(title = ""),
+    yaxis = list(title = "Median Mortality"),
+    showlegend = FALSE,
+    margin = list(l = 60, r = 20, t = 60, b = 40)
+  )
+```
+
+:::
+
+:::
+~~
+
+
+## Which region has the lowest mortality?
+
+Average mortality for each region - overall lowest 15
+
+```{r}
+#| label: regional-mortality-data
+#| echo: true
+#|message: false
+#|warning: false
+
+# The dataset does not contain raw individual‑fish mortality measurements, only regional monthly medians
+
+# Average median mortality by region
+#Since the dataset contains country, county, and area level data, I will filter to include only counties
+
+mort_by_region <- monthly_mortality_data |> 
+  mutate(date = as.Date(date)) |> 
+  filter(geo_group == "county") |> 
+  group_by(region, species) |> 
+  summarise(
+    avg_median_mortality = mean(median, na.rm = TRUE), #avg of medians
+    p10 = quantile(median, 0.10, na.rm = TRUE),
+    p90 = quantile(median, .90, na.rm = TRUE),
+    n_months = sum(!is.na(median)), #count of months
+    .groups = "drop"
+  )
+
+# Select the 15 regions with the lowest average mortality.
+lowest_regions <- mort_by_region |>
+  arrange(avg_median_mortality) |>
+  slice_head(n = 15)
+
+lowest_regions
+```
+
+Plotting mortality by region
+
+```{r}
+#| label: lowest-mortality-plot
+#| echo: true
+#|message: false
+#|warning: false
+
+# Filtering for just salmon
+#salmon_lowest_region <- lowest_regions |> 
+#  filter(species == "salmon")
+
+# Filtering for just rainbow trout
+#trout_lowest_region <- lowest_regions |> 
+#  filter(species == "rainbowtrout")
+
+# Salmon lowest mortality graph
+ggplot(lowest_regions,
+       aes(x = reorder(region, avg_median_mortality),
+           y = avg_median_mortality,
+           fill = species)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Counties with Lowest Average Median Mortality",
+    subtitle = "Filtered to geo_group = 'County'",
+    x = NULL,
+    y = "Average median mortality"
+  ) +
+  theme(legend.position = "bottom")
+
+```
+
+## What other types of losses are significant?
+
+The losses dataset includes:
+
+-   dead
+-   discarded
+-   escaped
+-   other
+
+We reshape the dataset to explore proportions.
+
+```{r}
+#|label: loss-long-data
+#|include: false
+#|message: false
+#|warning: false
+
+# Convert wide columns (dead, discarded, escaped, other)
+# into a long tidy format: loss_type, count.
+loss_long <- monthly_losses_data |>
+  mutate(date = as.Date(date)) |>
+  select(species, date, geo_group, region, losses, dead, discarded, escaped, other) |>
+  pivot_longer(
+    cols = c(dead, discarded, escaped, other),
+    names_to = "loss_type",
+    values_to = "count"
+  ) |>
+  mutate(share = count / losses)   # compute proportion of total loss
+
+loss_long
+
+```
+
+Summarise total losses by type
+
+```{r}
+#|label: loss-summary
+#|echo: true
+#|message: false
+#|warning: false
+
+# For each loss type, compute total and mean share.
+loss_summary_table<- loss_long |>
+  group_by(loss_type) |>
+  summarise(
+    total_count = sum(count, na.rm = TRUE),
+    avg_share = mean(share, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(total_count))
+
+loss_summary_table <- loss_summary_table %>%
+  rename(
+    "Loss Type" = loss_type,
+    "Total Count" = total_count,
+    "Average Share" = avg_share
+  )
+
+# Step 3 — produce a styled GT table
+loss_summary_table %>%
+  gt() %>%
+  
+  # Add a title and subtitle
+  tab_header(
+    title = "Summary of Loss Types",
+    subtitle = "Total losses and their average proportion"
+  ) %>%
+  
+  # Format numbers nicely
+  fmt_number(
+    columns = "Total Count",
+    sep_mark = ",", 
+    decimals = 0
+  ) %>%
+  fmt_percent(
+    columns = "Average Share",
+    decimals = 2
+  ) %>%
+
+  # Highlight rows (example: highlight the largest total count)
+  data_color(
+    columns = "Total Count",
+    colors = scales::col_numeric(
+      palette = c("#D9EAF7", "#004F9F"),  # light blue → NHS blue
+      domain = NULL
+    )
+  ) %>%
+
+  # Add borders around table + row separators
+  tab_style(
+    style = cell_borders(
+      sides = "all",
+      color = "grey60",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) %>%
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "black",
+      weight = px(2)
+    ),
+    locations = cells_column_labels()
+  ) %>%
+
+  # Style column headers (remove underscores, nicer background)
+  tab_style(
+    style = list(
+      cell_fill(color = "#E5F0FA"),       # NHS light blue background
+      cell_text(weight = "bold")
+    ),
+    locations = cells_column_labels()
+  )
+```
+
+Loss over time
+
+```{r}
+#| label: loss-over-time
+#|echo: true
+#|message: false
+#|warning: false
+
+
+# Summarise total losses by type per month.
+loss_time <- loss_long |>
+  group_by(loss_type, date) |>
+  summarise(total = sum(count, na.rm = TRUE), .groups = "drop")
+
+ggplot(loss_time,
+       aes(x = date, y = total, colour = loss_type)) +
+  geom_line(linewidth = 1) +
+  labs(
+    title = "Loss Types Over Time",
+    subtitle = "Aggregated across all regions and species",
+    x = NULL,
+    y = "Number of fish"
+  ) +
+  scale_y_continuous(labels = comma) +  # prettier y-axis
+  theme(legend.position = "bottom")
+
+```
+
+Loss composition by region
+
+```{r}
+#| label: loss-by-region-plot
+#|echo: true
+#|message: false
+#|warning: false
+
+
+# Compute regional loss composition (share of each type)
+loss_by_region <- loss_long |>
+  filter(geo_group == "county") |> 
+  group_by(region, loss_type) |>
+  summarise(total = sum(count, na.rm = TRUE), .groups = "drop") |>
+  group_by(region) |>
+  mutate(share = total / sum(total)) |>
+  ungroup()
+
+# Select the 5 regions with the highest total losses.
+top_regions <- loss_by_region |>
+  group_by(region) |>
+  summarise(total_losses = sum(total), .groups = "drop") |>
+  arrange(desc(total_losses)) |>
+  slice_head(n = 5) |>
+  pull(region)
+
+# Plot the composition.
+loss_by_region |>
+  filter(region %in% top_regions) |>
+  ggplot(aes(x = reorder(region, share), y = share, fill = loss_type)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Loss Composition by Region",
+    subtitle = "Top 5 counties by total losses",
+    x = NULL,
+    y = "Share of total losses"
+  ) +
+  scale_y_continuous(labels = percent_format()) +
+  theme(legend.position = "bottom")
+
+```
